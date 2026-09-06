@@ -5,7 +5,7 @@
 [![Razorpay API](https://img.shields.io/badge/Razorpay-v1%2Forders-blue)](https://razorpay.com)
 [![Python](https://img.shields.io/badge/Python-3.11-green)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)](https://fastapi.tiangolo.com)
-[![Gemini API](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-orange)](https://ai.google.dev)
+[![Gemini API](https://img.shields.io/badge/AI-Gemini%203.6%20Flash-orange)](https://ai.google.dev)
 [![Security](https://img.shields.io/badge/Security-HMAC%20SHA--256-red)](https://en.wikipedia.org/wiki/HMAC)
 
 ---
@@ -92,7 +92,7 @@ Converts unstructured user prompts into strict JSON policy bounds, including:
 * Negative keywords
 * Budget tolerance
 
-The compiler uses **Gemini 2.5 Flash** to interpret the user's original intent.
+The compiler uses **Gemini 3.6 Flash** to interpret the user's original intent.
 
 ### 2. Cryptographic Non-Repudiation
 
@@ -146,7 +146,7 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 | **Component**              | **Technology**                         |
 | -------------------------- | -------------------------------------- |
 | Proxy Gateway              | Python 3.11, FastAPI, Uvicorn          |
-| Intent Compiler            | Google GenAI SDK, Gemini 2.5 Flash     |
+| Intent Compiler            | Google GenAI SDK, Gemini 3.6 Flash     |
 | Validation Engine          | Pydantic v2                             |
 | Cryptographic Signing      | HMAC-SHA256                             |
 | Payment Gateway Integration | Razorpay Python SDK                    |
@@ -429,7 +429,7 @@ The system is designed to complement payment infrastructure such as the Razorpay
 
 # Limitations
 
-* **LLM Interpretation:** Gemini 2.5 Flash may occasionally misinterpret ambiguous or incomplete user instructions.
+* **LLM Interpretation:** Gemini 3.6 Flash may occasionally misinterpret ambiguous or incomplete user instructions.
 * **Semantic Matching:** Product names and categories vary across merchants, which can affect item-level verification.
 * **External Dependencies:** The system depends on Gemini and Razorpay APIs, so outages or rate limits may affect transactions.
 * **HITL Security:** The current approval flow is prototype-level and would require stronger authentication and replay protection for production.
