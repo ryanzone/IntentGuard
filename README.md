@@ -416,6 +416,7 @@ The system is designed to complement payment infrastructure such as the Razorpay
 # Future Enhancements
 
 * Persistent database-backed audit logs
+* WhatsApp-based HITL approval workflows
 * Policy versioning and replay protection
 * Agent identity verification
 * Multi-agent transaction support
