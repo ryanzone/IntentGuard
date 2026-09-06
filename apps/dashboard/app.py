@@ -81,7 +81,7 @@ with st.sidebar:
     st.markdown("""
     * **Proxy Target:** `127.0.0.1:8000`
     * **Security Layer:** `HMAC SHA-256`
-    * **Policy Engine:** `Gemini 2.5 Flash`
+    * **Policy Engine:** `Gemini 3.6 Flash`
     * **Gateway Target:** `Razorpay /v1/orders`
     """)
     
