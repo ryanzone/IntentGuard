@@ -45,10 +45,11 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
             │ Generates HMAC Policy
             ▼
 ┌─────────────────────────┐      Checkout Payload
-│ Signed Policy Envelope  │ ─────────────────────────>
-│ HMAC-SHA256             │
-└─────────────────────────┘
-                                                      
+│ Signed Policy Envelope  │ ──────────────|
+│ HMAC-SHA256             │               |
+└─────────────────────────┘               |
+                                          |
+                                          ▼                              
                               ┌─────────────────────────┐
                               │ Razorpay IntentGuard    │
                               │ Proxy Interceptor       │
@@ -60,8 +61,8 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
       ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
       │ STATUS: APPROVED    │  │ STATUS: BLOCKED     │  │ STATUS: HOLD        │
       ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-      │ Executes Razorpay   │  │ Prevents Order      │  │ Dispatches WhatsApp │
-      │ Order               │  │ Creation            │  │ Approval Link       │
+      │ Executes Razorpay   │  │ Prevents Order      │  │ Requests HITL       │
+      │ Order               │  │ Creation            │  │ Approval            │
       └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
 
@@ -128,7 +129,7 @@ Tolerance:            5%
 Result: HOLD
 ```
 
-The user receives an approval request before the transaction is allowed to continue.
+The user receives an approval request through the application before the transaction is allowed to continue.
 
 ### 5. Containerized Microservice
 
@@ -145,7 +146,7 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 | Validation Engine           | Pydantic v2                        |
 | Cryptographic Signing       | HMAC-SHA256                        |
 | Payment Gateway Integration | Razorpay Python SDK                |
-| Escalation Service          | Twilio SDK, WhatsApp Webhooks      |
+| Escalation & HITL           | FastAPI, Streamlit                 |
 | Containerization            | Docker, Docker Compose             |
 
 ---
@@ -153,30 +154,32 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 ## Directory Structure
 
 ```text
-├── apps
-│   ├── dashboard
+razorpay-intentguard/
+├── apps/
+│   ├── dashboard/
 │   │   ├── Dockerfile
 │   │   ├── app.py
 │   │   └── requirements.txt
-│   └── proxy
-│       ├── app
-│       │   ├── api
+│   │
+│   └── proxy/
+│       ├── app/
+│       │   ├── api/
 │       │   │   ├── __init__.py
 │       │   │   ├── escalation.py
 │       │   │   └── routes.py
-│       │   ├── compiler
+│       │   ├── compiler/
 │       │   │   ├── __init__.py
 │       │   │   └── intent_engine.py
-│       │   ├── core
+│       │   ├── core/
 │       │   │   ├── __init__.py
 │       │   │   └── config.py
-│       │   ├── evaluator
+│       │   ├── evaluator/
 │       │   │   ├── __init__.py
 │       │   │   └── rules.py
-│       │   ├── schemas
+│       │   ├── schemas/
 │       │   │   ├── __init__.py
 │       │   │   └── policy.py
-│       │   ├── services
+│       │   ├── services/
 │       │   │   ├── __init__.py
 │       │   │   ├── audit.py
 │       │   │   ├── escalation_store.py
@@ -190,9 +193,11 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 │       ├── test_client.py
 │       ├── test_full_suite.py
 │       └── test_hitl.py
-├── packages
-│   └── shared-types
+│
+├── packages/
+│   └── shared-types/
 │       └── policy.schema.ts
+│
 ├── .gitignore
 ├── README.md
 └── docker-compose.yml
@@ -211,7 +216,6 @@ Make sure you have:
 * Docker Compose
 * Razorpay test API credentials
 * Gemini API key
-* Twilio credentials if WhatsApp escalation is enabled
 
 ---
 
@@ -284,11 +288,11 @@ python apps/proxy/test_hitl.py
 
 # Verified Gateway Pathways
 
-| Scenario               | Input Prompt                            | Cart Contents                        | Proxy Result   | Gateway Action                                   |
-| ---------------------- | --------------------------------------- | ------------------------------------ | -------------- | ------------------------------------------------ |
-| **Clean Match**        | "Buy laptop under ₹30,000"              | Laptop — ₹28,500                     | `200 APPROVED` | Executes `razorpay.Client.order.create()`        |
-| **Category Violation** | "Buy laptop under ₹70,000, no warranty" | Laptop — ₹65,000 + Warranty — ₹9,000 | `400 BLOCKED`  | Prevents checkout and logs violation             |
-| **HITL Overage**       | "Buy laptop under ₹70,000"              | Upgraded Laptop — ₹71,400 (2% over)  | `200 HOLD`     | Dispatches approval webhook; resumes on approval |
+| Scenario               | Input Prompt                            | Cart Contents                        | Proxy Result   | Gateway Action                            |
+| ---------------------- | --------------------------------------- | ------------------------------------ | -------------- | ----------------------------------------- |
+| **Clean Match**        | "Buy laptop under ₹30,000"              | Laptop — ₹28,500                     | `200 APPROVED` | Executes `razorpay.Client.order.create()` |
+| **Category Violation** | "Buy laptop under ₹70,000, no warranty" | Laptop — ₹65,000 + Warranty — ₹9,000 | `400 BLOCKED`  | Prevents checkout and logs violation      |
+| **HITL Overage**       | "Buy laptop under ₹70,000"              | Upgraded Laptop — ₹71,400 (2% over)  | `200 HOLD`     | Pauses transaction until human approval   |
 
 ---
 
@@ -407,7 +411,6 @@ The system is designed to complement payment infrastructure such as the Razorpay
 # Future Enhancements
 
 * Persistent database-backed audit logs
-* Production-grade WhatsApp approval workflows
 * Policy versioning and replay protection
 * Agent identity verification
 * Multi-agent transaction support
@@ -415,6 +418,17 @@ The system is designed to complement payment infrastructure such as the Razorpay
 * Advanced fraud and anomaly detection
 * Dashboard analytics for policy violations
 * Support for additional payment gateways
+
+---
+
+# Limitations
+
+* **LLM Interpretation:** Gemini 2.5 Flash may occasionally misinterpret ambiguous or incomplete user instructions.
+* **Semantic Matching:** Product names and categories vary across merchants, which can affect item-level verification.
+* **External Dependencies:** The system depends on Gemini and Razorpay APIs, so outages or rate limits may affect transactions.
+* **HITL Security:** The current approval flow is prototype-level and would require stronger authentication and replay protection for production.
+* **Payment Integration:** The current implementation is focused on the Razorpay Orders API.
+* **Production Scaling:** High-volume deployment would require persistent storage, distributed state management, monitoring, and additional fault tolerance.
 
 ---
 
