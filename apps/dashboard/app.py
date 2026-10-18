@@ -81,8 +81,8 @@ with st.sidebar:
     st.markdown("""
     * **Proxy Target:** `127.0.0.1:8000`
     * **Security Layer:** `HMAC SHA-256`
-    * **Policy Engine:** `OpenRouter (Nemotron 3 120B)`
-    * **Gateway Target:** `PayPal /v2/orders`
+* **Policy Engine:** `OpenRouter (Nemotron 3 120B)`
+* **Gateway Target:** `PayPal /v2/orders`
     """)
     
     st.markdown("---")
@@ -343,4 +343,4 @@ with tab2:
         """)
 
     st.markdown("---")
-    st.caption("PayPal IntentGuard - Agentic Payment Gateway Verification Infrastructure")
+st.caption("PayPal IntentGuard - Agentic Payment Gateway Verification Infrastructure")

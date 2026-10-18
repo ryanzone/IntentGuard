@@ -10,6 +10,14 @@
 
 ---
 
+## Demo
+
+**Demo Video:** [Watch the Razorpay IntentGuard Demo](https://youtu.be/u8gw1rCU4nk?si=c18reocTfbA0ZUWC)
+
+## Demo
+
+**Demo Video:** [Watch the PayPal IntentGuard Demo](https://youtu.be/u8gw1rCU4nk?si=c18reocTfbA0ZUWC)
+
 ## Executive Summary
 
 Autonomous AI shopping agents frequently make purchases on behalf of consumers. However, standard payment gateway rails primarily enforce flat spending caps (e.g., total price ≤ ₹70,000). They cannot evaluate natural-language constraints or inspect individual cart line items to determine whether a transaction actually aligns with the user's original instructions.
@@ -45,10 +53,11 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
             │ Generates HMAC Policy
             ▼
 ┌─────────────────────────┐      Checkout Payload
-│ Signed Policy Envelope  │ ─────────────────────────>
-│ HMAC-SHA256             │
-└─────────────────────────┘
-                                                      
+│ Signed Policy Envelope  │ ──────────────|
+│ HMAC-SHA256             │               |
+└─────────────────────────┘               |
+                                          |
+                                          ▼                              
                               ┌─────────────────────────┐
                               │ PayPal IntentGuard    │
                               │ Proxy Interceptor       │
@@ -60,7 +69,7 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
       ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
       │ STATUS: APPROVED    │  │ STATUS: BLOCKED     │  │ STATUS: HOLD        │
       ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-      │ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
+│ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
       │ Order               │  │ Creation            │  │ Approval Link       │
       └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
@@ -128,7 +137,7 @@ Tolerance:            5%
 Result: HOLD
 ```
 
-The user receives an approval request before the transaction is allowed to continue.
+The user receives an approval request through the application before the transaction is allowed to continue.
 
 ### 5. Containerized Microservice
 
@@ -153,30 +162,32 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 ## Directory Structure
 
 ```text
-├── apps
-│   ├── dashboard
+razorpay-intentguard/
+├── apps/
+│   ├── dashboard/
 │   │   ├── Dockerfile
 │   │   ├── app.py
 │   │   └── requirements.txt
-│   └── proxy
-│       ├── app
-│       │   ├── api
+│   │
+│   └── proxy/
+│       ├── app/
+│       │   ├── api/
 │       │   │   ├── __init__.py
 │       │   │   ├── escalation.py
 │       │   │   └── routes.py
-│       │   ├── compiler
+│       │   ├── compiler/
 │       │   │   ├── __init__.py
 │       │   │   └── intent_engine.py
-│       │   ├── core
+│       │   ├── core/
 │       │   │   ├── __init__.py
 │       │   │   └── config.py
-│       │   ├── evaluator
+│       │   ├── evaluator/
 │       │   │   ├── __init__.py
 │       │   │   └── rules.py
-│       │   ├── schemas
+│       │   ├── schemas/
 │       │   │   ├── __init__.py
 │       │   │   └── policy.py
-│       │   ├── services
+│       │   ├── services/
 │       │   │   ├── __init__.py
 │       │   │   ├── audit.py
 │       │   │   ├── escalation_store.py
@@ -190,9 +201,11 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 │       ├── test_client.py
 │       ├── test_full_suite.py
 │       └── test_hitl.py
-├── packages
-│   └── shared-types
+│
+├── packages/
+│   └── shared-types/
 │       └── policy.schema.ts
+│
 ├── .gitignore
 ├── README.md
 └── docker-compose.yml
@@ -407,7 +420,7 @@ The system is designed to complement payment infrastructure such as the PayPal O
 # Future Enhancements
 
 * Persistent database-backed audit logs
-* Production-grade WhatsApp approval workflows
+* WhatsApp-based HITL approval workflows
 * Policy versioning and replay protection
 * Agent identity verification
 * Multi-agent transaction support
@@ -415,6 +428,17 @@ The system is designed to complement payment infrastructure such as the PayPal O
 * Advanced fraud and anomaly detection
 * Dashboard analytics for policy violations
 * Support for additional payment gateways
+
+---
+
+# Limitations
+
+* **LLM Interpretation:** Nemotron 3 120B may occasionally misinterpret ambiguous or incomplete user instructions.
+* **Semantic Matching:** Product names and categories vary across merchants, which can affect item-level verification.
+* **External Dependencies:** The system depends on OpenRouter and PayPal APIs, so outages or rate limits may affect transactions.
+* **HITL Security:** The current approval flow is prototype-level and would require stronger authentication and replay protection for production.
+* **Payment Integration:** The current implementation is focused on the PayPal Orders API.
+* **Production Scaling:** High-volume deployment would require persistent storage, distributed state management, monitoring, and additional fault tolerance.
 
 ---
 
