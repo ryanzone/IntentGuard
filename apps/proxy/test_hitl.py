@@ -14,7 +14,7 @@ async def run_dynamic_hitl_test(
     proxy_url = "http://127.0.0.1:8000/v1/orders"
     user_id = user_id or f"usr_{uuid4().hex[:8]}"
 
-    # 1. Compile User Intent Policy dynamically via Gemini
+    # 1. Compile User Intent Policy dynamically via OpenRouter
     print(f"\n[Step 1] Dynamically Compiling User Intent for '{user_id}':\n Prompt: '{user_prompt}'")
     policy = await compile_user_intent(user_id=user_id, raw_prompt=user_prompt)
 

@@ -1,11 +1,11 @@
-# Razorpay IntentGuard
+# PayPal IntentGuard
 
 > **Real-Time Semantic Intent Verification Proxy & Policy Enforcement Gateway for Agentic Commerce**
 
-[![Razorpay API](https://img.shields.io/badge/Razorpay-v1%2Forders-blue)](https://razorpay.com)
+[![PayPal API](https://img.shields.io/badge/PayPal-v2%2Forders-blue)](https://developer.paypal.com)
 [![Python](https://img.shields.io/badge/Python-3.11-green)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)](https://fastapi.tiangolo.com)
-[![Gemini API](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-orange)](https://ai.google.dev)
+[![OpenRouter API](https://img.shields.io/badge/AI-OpenRouter%20Nemotron%20120B-orange)](https://openrouter.ai)
 [![Security](https://img.shields.io/badge/Security-HMAC%20SHA--256-red)](https://en.wikipedia.org/wiki/HMAC)
 
 ---
@@ -14,7 +14,7 @@
 
 Autonomous AI shopping agents frequently make purchases on behalf of consumers. However, standard payment gateway rails primarily enforce flat spending caps (e.g., total price ≤ ₹70,000). They cannot evaluate natural-language constraints or inspect individual cart line items to determine whether a transaction actually aligns with the user's original instructions.
 
-**Razorpay IntentGuard** acts as an intelligent pre-authorization gateway proxy sitting in front of Razorpay's `POST /v1/orders` API.
+**PayPal IntentGuard** acts as an intelligent pre-authorization gateway proxy sitting in front of PayPal's `POST /v2/orders` API.
 
 It dynamically:
 
@@ -28,7 +28,7 @@ It dynamically:
 
 ## Architecture & Protocol Alignment
 
-Razorpay IntentGuard is designed around emerging standards for **verifiable intent and agentic commerce**, including **Google AP2 (Intent/Cart Mandates)** and **Mastercard Verifiable Intent Frameworks**, while integrating directly with the Razorpay API ecosystem.
+PayPal IntentGuard is designed around emerging standards for **verifiable intent and agentic commerce**, including **Google AP2 (Intent/Cart Mandates)** and **Mastercard Verifiable Intent Frameworks**, while integrating directly with the PayPal API ecosystem.
 
 ```text
 ┌─────────────────────────┐
@@ -38,7 +38,7 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
             │
             ▼
 ┌─────────────────────────┐
-│ Gemini LLM              │
+│ OpenRouter LLM (Nemotron) │
 │ Intent Compiler         │
 └───────────┬─────────────┘
             │
@@ -50,7 +50,7 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
 └─────────────────────────┘
                                                       
                               ┌─────────────────────────┐
-                              │ Razorpay IntentGuard    │
+                              │ PayPal IntentGuard    │
                               │ Proxy Interceptor       │
                               └───────────┬─────────────┘
                                           │
@@ -60,7 +60,7 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
       ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
       │ STATUS: APPROVED    │  │ STATUS: BLOCKED     │  │ STATUS: HOLD        │
       ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-      │ Executes Razorpay   │  │ Prevents Order      │  │ Dispatches WhatsApp │
+      │ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
       │ Order               │  │ Creation            │  │ Approval Link       │
       └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
@@ -69,7 +69,7 @@ Razorpay IntentGuard is designed around emerging standards for **verifiable inte
 
 | Status     | Condition                      | Action                  |
 | ---------- | ------------------------------ | ----------------------- |
-| `APPROVED` | Cart matches user intent       | Creates Razorpay order  |
+| `APPROVED` | Cart matches user intent       | Creates PayPal order  |
 | `BLOCKED`  | Policy violation detected      | Prevents order creation |
 | `HOLD`     | Ambiguous or tolerated overage | Requests human approval |
 
@@ -87,7 +87,7 @@ Converts unstructured user prompts into strict JSON policy bounds, including:
 * Negative keywords
 * Budget tolerance
 
-The compiler uses **Gemini 2.5 Flash** to interpret the user's original intent.
+The compiler uses **OpenRouter** with **Nemotron 3 Super 120B** to interpret the user's original intent.
 
 ### 2. Cryptographic Non-Repudiation
 
@@ -141,10 +141,10 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 | Component                   | Technology                         |
 | --------------------------- | ---------------------------------- |
 | Proxy Gateway               | Python 3.11, FastAPI, Uvicorn      |
-| Intent Compiler             | Google GenAI SDK, Gemini 2.5 Flash |
+| Intent Compiler             | OpenRouter API, Nemotron 3 120B  |
 | Validation Engine           | Pydantic v2                        |
 | Cryptographic Signing       | HMAC-SHA256                        |
-| Payment Gateway Integration | Razorpay Python SDK                |
+| Payment Gateway Integration | PayPal Python SDK                |
 | Escalation Service          | Twilio SDK, WhatsApp Webhooks      |
 | Containerization            | Docker, Docker Compose             |
 
@@ -209,8 +209,8 @@ Make sure you have:
 * Python 3.11+
 * Docker
 * Docker Compose
-* Razorpay test API credentials
-* Gemini API key
+* PayPal test API credentials
+* OpenRouter API key
 * Twilio credentials if WhatsApp escalation is enabled
 
 ---
@@ -220,10 +220,10 @@ Make sure you have:
 Create a `.env` file in `apps/proxy/` or the project root:
 
 ```env
-GEMINI_API_KEY="your-gemini-api-key"
+OPENROUTER_API_KEY="sk-or-v1-your-openrouter-key-here"
 
-RAZORPAY_KEY_ID="rzp_test_xxxxxxxxxxxx"
-RAZORPAY_KEY_SECRET="xxxxxxxxxxxxxxxxxxxxxxxx"
+PAYPAL_CLIENT_ID="YOUR_PAYPAL_CLIENT_ID"
+PAYPAL_CLIENT_SECRET="YOUR_PAYPAL_CLIENT_SECRET"
 
 POLICY_HMAC_SECRET="super-secret-hmac-key"
 ```
@@ -286,7 +286,7 @@ python apps/proxy/test_hitl.py
 
 | Scenario               | Input Prompt                            | Cart Contents                        | Proxy Result   | Gateway Action                                   |
 | ---------------------- | --------------------------------------- | ------------------------------------ | -------------- | ------------------------------------------------ |
-| **Clean Match**        | "Buy laptop under ₹30,000"              | Laptop — ₹28,500                     | `200 APPROVED` | Executes `razorpay.Client.order.create()`        |
+| **Clean Match**        | "Buy laptop under ₹30,000"              | Laptop — ₹28,500                     | `200 APPROVED` | Executes `PayPalHttpClient.do_create_order()`        |
 | **Category Violation** | "Buy laptop under ₹70,000, no warranty" | Laptop — ₹65,000 + Warranty — ₹9,000 | `400 BLOCKED`  | Prevents checkout and logs violation             |
 | **HITL Overage**       | "Buy laptop under ₹70,000"              | Upgraded Laptop — ₹71,400 (2% over)  | `200 HOLD`     | Dispatches approval webhook; resumes on approval |
 
@@ -365,7 +365,7 @@ IntentGuard separates **intent compilation**, **policy signing**, and **transact
 User Intent
      │
      ▼
-Gemini Intent Compiler
+OpenRouter Intent Compiler
      │
      ▼
 Structured Policy
@@ -400,7 +400,7 @@ IntentGuard is designed around concepts from emerging **agentic commerce and ver
 * **Human-in-the-loop authorization**
 * **Policy enforcement at payment boundaries**
 
-The system is designed to complement payment infrastructure such as the Razorpay Orders API by adding a semantic intent verification layer before order creation.
+The system is designed to complement payment infrastructure such as the PayPal Orders API by adding a semantic intent verification layer before order creation.
 
 ---
 

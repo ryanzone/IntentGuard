@@ -4,14 +4,15 @@ import json
 import time
 import asyncio
 from uuid import uuid4
-from google import genai
-from google.genai import types
-from google.genai.errors import ServerError, APIError
+from openai import OpenAI, APIError
 
 from app.schemas.policy import IntentPolicy, IntentRules
 from app.core.config import settings
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=settings.OPENROUTER_API_KEY,
+)
 
 SYSTEM_INSTRUCTION = """
 You are a financial policy engine for an agentic payment gateway.
@@ -32,38 +33,35 @@ def generate_policy_signature(payload_dict: dict, secret: str) -> str:
 async def compile_user_intent(user_id: str, raw_prompt: str, ttl_seconds: int = 3600) -> IntentPolicy:
     max_retries = 3
     response = None
-    
+
     for attempt in range(max_retries):
         try:
-            # Use 'gemini-2.5-flash' or 'gemini-1.5-flash' as clean model strings in google-genai SDK
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=raw_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json",
-                    response_schema=IntentRules,
-                    temperature=0.0,
-                ),
+            response = client.chat.completions.create(
+                model="nvidia/nemotron-3-super-120b-a12b:free",
+                messages=[
+                    {"role": "system", "content": SYSTEM_INSTRUCTION},
+                    {"role": "user", "content": raw_prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,
             )
             break
-        except (ServerError, APIError) as e:
+        except APIError as e:
             if attempt == max_retries - 1:
-                # If gemini-2.5-flash falls back, try standard flash
-                response = client.models.generate_content(
-                    model='gemini-3.5-flash',
-                    contents=raw_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        response_mime_type="application/json",
-                        response_schema=IntentRules,
-                        temperature=0.0,
-                    ),
+                # Fallback to a different model via OpenRouter
+                response = client.chat.completions.create(
+                    model="google/gemma-4-26b-a4b:free",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_INSTRUCTION},
+                        {"role": "user", "content": raw_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.0,
                 )
             else:
                 await asyncio.sleep(2 ** attempt)
 
-    parsed_rules: IntentRules = IntentRules.model_validate_json(response.text)
+    parsed_rules: IntentRules = IntentRules.model_validate_json(response.choices[0].message.content)
     intent_id = uuid4()
     expires_at = int(time.time()) + ttl_seconds
 

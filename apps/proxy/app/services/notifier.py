@@ -25,7 +25,7 @@ class EscalationNotifier:
         reject_link = f"{self.base_url}/v1/escalations/{escalation_id}/decision?action=REJECT"
 
         message = (
-            f"⚠️ *Razorpay IntentGuard: Action Required*\n\n"
+            f"⚠️ *PayPal IntentGuard: Action Required*\n\n"
             f"A transaction was placed on *HOLD* due to ambiguity.\n\n"
             f"*Reason:* {reason}\n\n"
             f"*Cart Summary ({currency} {total_amount:,}):*\n{items_summary}\n\n"

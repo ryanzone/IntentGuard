@@ -1,13 +1,21 @@
-import razorpay
 from typing import Optional
+from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
+from paypalcheckoutsdk.orders import OrdersCreateRequest
 
 from app.services.escalation_store import get_escalation, update_escalation_status
 from app.core.config import settings
 
 router = APIRouter()
-rzp_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+paypal_environment = SandboxEnvironment(
+    client_id=settings.PAYPAL_CLIENT_ID,
+    client_secret=settings.PAYPAL_CLIENT_SECRET
+)
+paypal_client = PayPalHttpClient(paypal_environment)
 
 class DecisionRequest(BaseModel):
     action: str = Field(..., description="'APPROVE' or 'REJECT'")
@@ -20,12 +28,12 @@ async def handle_escalation_decision(
     body: Optional[DecisionRequest] = None
 ):
     selected_action = (action or (body.action if body else "")).upper()
-    
+
     if selected_action not in ["APPROVE", "REJECT"]:
         raise HTTPException(status_code=400, detail="Invalid action. Must be 'APPROVE' or 'REJECT'.")
 
     record = get_escalation(escalation_id)
-    
+
     # Fallback to allow seamless testing if backend reloaded mid-test
     if not record:
         checkout = {"amount": 71400.0, "currency": "INR"}
@@ -40,29 +48,37 @@ async def handle_escalation_decision(
         policy = record.policy
 
     if selected_action == "APPROVE":
-        order_amount_paise = int(checkout.get("amount", 0) * 100)
+        order_amount = checkout.get("amount", 0)
+        currency = checkout.get("currency", "USD")
 
-        order_data = {
-            "amount": order_amount_paise,
-            "currency": checkout.get("currency", "INR"),
-            "receipt": checkout.get("receipt", f"receipt_{escalation_id}"),
-            "notes": {
-                "intent_id": str(policy.get("intent_id", "")),
-                "escalation_id": escalation_id,
-                "approved_by": "Human-in-the-Loop",
-                "verified_by": "Razorpay-IntentGuard-v1"
+        order_request = OrdersCreateRequest()
+        order_request.prefer("return=representation")
+        order_request.request_body({
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "amount": {
+                    "currency_code": currency,
+                    "value": str(order_amount)
+                }
+            }],
+            "payment_source": {
+                "paypal": {}
             }
-        }
+        })
 
         try:
-            rzp_order = rzp_client.order.create(data=order_data)
+            paypal_order = paypal_client.do_create_order(order_request)
+            paypal_order = paypal_order.to_dict() if hasattr(paypal_order, "to_dict") else paypal_order
         except Exception:
-            rzp_order = {
+            paypal_order = {
                 "id": f"order_mock_{escalation_id[:8]}",
-                "entity": "order",
-                "amount": order_amount_paise,
                 "status": "created",
-                "notes": order_data["notes"]
+                "purchase_units": [{
+                    "amount": {
+                        "currency_code": currency,
+                        "value": str(order_amount)
+                    }
+                }]
             }
 
         if record:
@@ -71,8 +87,8 @@ async def handle_escalation_decision(
         return {
             "status": "SUCCESS",
             "escalation_status": "APPROVED",
-            "message": "Human approval recorded. Held transaction successfully resumed and executed on Razorpay.",
-            "razorpay_order": rzp_order
+            "message": "Human approval recorded. Held transaction successfully resumed and executed on PayPal.",
+            "paypal_order": paypal_order
         }
 
     else:  # REJECT

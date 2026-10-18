@@ -15,7 +15,7 @@ POLICY_HMAC_SECRET = "super-secret-hmac-key"
 # PAGE CONFIGURATION & ENTERPRISE DESIGN SYSTEM
 # -------------------------------------------------------------------
 st.set_page_config(
-    page_title="Razorpay IntentGuard - Control Center",
+    page_title="PayPal IntentGuard - Control Center",
     page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded"
@@ -81,8 +81,8 @@ with st.sidebar:
     st.markdown("""
     * **Proxy Target:** `127.0.0.1:8000`
     * **Security Layer:** `HMAC SHA-256`
-    * **Policy Engine:** `Gemini 2.5 Flash`
-    * **Gateway Target:** `Razorpay /v1/orders`
+    * **Policy Engine:** `OpenRouter (Nemotron 3 120B)`
+    * **Gateway Target:** `PayPal /v2/orders`
     """)
     
     st.markdown("---")
@@ -95,12 +95,12 @@ with st.sidebar:
     """)
     
     st.markdown("---")
-    st.caption("Razorpay Buildathon Reference Protocol")
+    st.caption("PayPal Hackathon Reference Protocol")
 
 # -------------------------------------------------------------------
 # HEADER SECTION
 # -------------------------------------------------------------------
-st.title("Razorpay IntentGuard - Agentic Gateway Control Center")
+st.title("PayPal IntentGuard - Agentic Gateway Control Center")
 st.caption("Autonomous Agent Verification, Semantic Line-Item Inspection & Human-in-the-Loop Interceptor")
 
 if "latest_decision" not in st.session_state:
@@ -249,7 +249,7 @@ with tab1:
         status = res_data.get("status")
         
         if status == "APPROVED":
-            st.success("TRANSACTION APPROVED - Policy Cleared. Razorpay Order Successfully Generated.")
+            st.success("TRANSACTION APPROVED - Policy Cleared. PayPal Order Successfully Generated.")
             with st.expander("View Approved Gateway Payload Details", expanded=True):
                 st.json(res_data)
 
@@ -291,8 +291,8 @@ with tab1:
                         st.error("Connection timed out waiting for proxy backend. Please try again.")
 
         elif res_data.get("escalation_status") == "APPROVED":
-            st.success("ESCALATION APPROVED - Held Transaction Resumed & Razorpay Order Generated.")
-            with st.expander("View Resumed Razorpay Order Payload", expanded=True):
+            st.success("ESCALATION APPROVED - Held Transaction Resumed & PayPal Order Generated.")
+            with st.expander("View Resumed PayPal Order Payload", expanded=True):
                 st.json(res_data)
 
         elif res_data.get("escalation_status") == "REJECTED":
@@ -319,7 +319,7 @@ with tab2:
     with col3:
         st.metric(label="Human-in-the-Loop", value="5.0% Tolerance")
     with col4:
-        st.metric(label="Razorpay API Target", value="/v1/orders")
+        st.metric(label="PayPal API Target", value="/v2/orders")
 
     st.markdown("---")
     
@@ -337,10 +337,10 @@ with tab2:
     with m_col2:
         st.markdown("#### **Gateway Execution Pipeline**")
         st.markdown("""
-        * **APPROVED:** Cart matches intent bounds -> Forwards payload directly to Razorpay Test Mode Order creation (`razorpay.Client.order.create`).
+        * **APPROVED:** Cart matches intent bounds -> Forwards payload directly to PayPal Sandbox Order creation (`PayPalHttpClient.do_create_order`).
         * **BLOCKED:** Cart breaches negative constraints or hard budgets -> Prevents payment execution and raises HTTP 400.
         * **HOLD:** Minor budget overage within 5% tolerance -> Pauses execution and dispatches human escalation workflows.
         """)
 
     st.markdown("---")
-    st.caption("Razorpay IntentGuard - Agentic Payment Gateway Verification Infrastructure")
+    st.caption("PayPal IntentGuard - Agentic Payment Gateway Verification Infrastructure")

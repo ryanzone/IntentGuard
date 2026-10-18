@@ -6,7 +6,7 @@ from app.compiler.intent_engine import compile_user_intent
 async def run_e2e_test():
     proxy_url = "http://127.0.0.1:8000/v1/orders"
     
-    # 1. Compile User Intent Policy via Gemini 1.5 Flash
+    # 1. Compile User Intent Policy via OpenRouter (Nemotron 3 120B)
     user_prompt = "Buy me a college laptop under ₹70,000, absolutely no warranty or accessories."
     print(f"\n[Step 1] Compiling User Intent: '{user_prompt}'")
     policy = await compile_user_intent(user_id="usr_test_99", raw_prompt=user_prompt)

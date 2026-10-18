@@ -1,8 +1,11 @@
-import razorpay
+import json
 from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
+
+from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment
+from paypalcheckoutsdk.orders import OrdersCreateRequest
 
 from app.schemas.policy import IntentPolicy, DecisionResult
 from app.evaluator.rules import evaluate_cart_against_policy
@@ -10,7 +13,12 @@ from app.core.config import settings
 from app.compiler.intent_engine import generate_policy_signature
 
 router = APIRouter()
-rzp_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+paypal_environment = SandboxEnvironment(
+    client_id=settings.PAYPAL_CLIENT_ID,
+    client_secret=settings.PAYPAL_CLIENT_SECRET
+)
+paypal_client = PayPalHttpClient(paypal_environment)
 
 class InterceptedCheckoutRequest(BaseModel):
     checkout_payload: Dict[str, Any]
@@ -29,10 +37,10 @@ async def create_intercepted_order(request: InterceptedCheckoutRequest):
         "expires_at": policy.expires_at
     }
     expected_signature = generate_policy_signature(unsigned_payload, settings.POLICY_HMAC_SECRET)
-    
+
     if policy.signature != expected_signature and policy.signature != "bypass_signature_for_sim":
         raise HTTPException(
-            status_code=401, 
+            status_code=401,
             detail="Security Violation: HMAC signature mismatch."
         )
 
@@ -41,33 +49,43 @@ async def create_intercepted_order(request: InterceptedCheckoutRequest):
 
     # 3. Gateway Decision Dispatcher
     if decision.status == "APPROVED":
-        order_amount_paise = int(checkout.get("amount", 0) * 100)
-        order_data = {
-            "amount": order_amount_paise,
-            "currency": checkout.get("currency", "INR"),
-            "receipt": checkout.get("receipt", f"receipt_{policy.user_id}"),
-            "notes": {
-                "intent_id": str(policy.intent_id),
-                "verified_by": "Razorpay-IntentGuard-v1",
-                **checkout.get("notes", {})
+        order_amount = checkout.get("amount", 0)
+        currency = checkout.get("currency", "USD")
+
+        order_request = OrdersCreateRequest()
+        order_request.prefer("return=representation")
+        order_request.request_body({
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "amount": {
+                    "currency_code": currency,
+                    "value": str(order_amount)
+                }
+            }],
+            "payment_source": {
+                "paypal": {}
             }
-        }
-        
+        })
+
         try:
-            rzp_order = rzp_client.order.create(data=order_data)
+            paypal_order = paypal_client.do_create_order(order_request)
+            paypal_order = paypal_order.to_dict() if hasattr(paypal_order, "to_dict") else paypal_order
         except Exception:
-            rzp_order = {
+            paypal_order = {
                 "id": f"order_mock_{uuid4().hex[:8]}",
-                "entity": "order",
-                "amount": order_amount_paise,
                 "status": "created",
-                "notes": order_data["notes"]
+                "purchase_units": [{
+                    "amount": {
+                        "currency_code": currency,
+                        "value": str(order_amount)
+                    }
+                }]
             }
 
         return {
             "status": "APPROVED",
             "message": "Cart payload successfully passed all semantic and budget intent checks.",
-            "razorpay_order": rzp_order
+            "paypal_order": paypal_order
         }
 
     elif decision.status == "AMBIGUOUS":

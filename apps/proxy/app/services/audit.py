@@ -15,7 +15,7 @@ class AuditLogEntry(BaseModel):
     reason: Optional[str] = None
     checkout_payload: Dict[str, Any]
     policy_rules: Dict[str, Any]
-    razorpay_order_id: Optional[str] = None
+    paypal_order_id: Optional[str] = None
 
 # In-memory storage for transaction audit trails
 _audit_trail_db: List[AuditLogEntry] = []
@@ -25,7 +25,7 @@ def record_audit_log(entry: AuditLogEntry) -> None:
     _audit_trail_db.append(entry)
     logger.info(
         f"[AUDIT LOGGED] ID: {entry.log_id} | User: {entry.user_id} | "
-        f"Status: {entry.status} | Order ID: {entry.razorpay_order_id or 'N/A'}"
+        f"Status: {entry.status} | Order ID: {entry.paypal_order_id or 'N/A'}"
     )
 
 def get_all_audit_logs() -> List[AuditLogEntry]:

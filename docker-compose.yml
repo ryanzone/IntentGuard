@@ -5,7 +5,7 @@ services:
     build:
       context: ./apps/proxy
       dockerfile: Dockerfile
-    container_name: razorpay-intentguard-proxy
+    container_name: paypal-intentguard-proxy
     ports:
       - "8000:8000"
     env_file:
