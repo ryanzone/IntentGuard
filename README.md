@@ -51,7 +51,7 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
                                           |
                                           ▼                              
                               ┌─────────────────────────┐
-                              │ PayPal IntentGuard    │
+                              │ PayPal IntentGuard      │
                               │ Proxy Interceptor       │
                               └───────────┬─────────────┘
                                           │
@@ -61,7 +61,7 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
       ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
       │ STATUS: APPROVED    │  │ STATUS: BLOCKED     │  │ STATUS: HOLD        │
       ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-│ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
+      │ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
       │ Order               │  │ Creation            │  │ Approval Link       │
       └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
@@ -154,7 +154,7 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 ## Directory Structure
 
 ```text
-razorpay-intentguard/
+intentguard/
 ├── apps/
 │   ├── dashboard/
 │   │   ├── Dockerfile
