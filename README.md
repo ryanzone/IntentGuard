@@ -10,10 +10,6 @@
 
 ---
 
-## Demo
-
-**Demo Video:** [Watch the Razorpay IntentGuard Demo](https://youtu.be/u8gw1rCU4nk?si=c18reocTfbA0ZUWC)
-
 ## Executive Summary
 
 Autonomous AI shopping agents frequently make purchases on behalf of consumers. However, standard payment gateway rails primarily enforce flat spending caps (e.g., total price ≤ ₹70,000). They cannot evaluate natural-language constraints or inspect individual cart line items to determine whether a transaction actually aligns with the user's original instructions.
