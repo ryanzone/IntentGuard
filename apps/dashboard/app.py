@@ -8,7 +8,7 @@ import time
 import re
 from uuid import uuid4
 
-PROXY_URL = "https://intentguard-6tdh.onrender.com"
+PROXY_URL = "http://localhost:8000"
 POLICY_HMAC_SECRET = "super-secret-hmac-key"
 
 # -------------------------------------------------------------------
