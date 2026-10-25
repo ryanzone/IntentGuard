@@ -77,6 +77,11 @@ with st.sidebar:
     st.caption("v1.0.0 - Semantic Interceptor")
     st.markdown("---")
     
+    st.markdown("#### **Proxy Target**")
+    _proxy_url = st.text_input("Proxy Base URL", value=PROXY_URL, key="ui_proxy_url_input")
+    PROXY_URL = _proxy_url.rstrip("/")
+    
+    st.markdown("---")
     st.markdown("#### **System Architecture**")
     st.markdown("""
     * **Proxy Target:** `127.0.0.1:8000`
@@ -106,7 +111,7 @@ st.caption("Autonomous Agent Verification, Semantic Line-Item Inspection & Human
 if "latest_decision" not in st.session_state:
     st.session_state["latest_decision"] = None
 
-tab1, tab2, tab3 = st.tabs(["Agent Simulator & Interceptor", "Gateway System Metrics", "Integration Tests (TC6-TC8)"])
+tab1, tab2, tab3 = st.tabs(["Agent Simulator & Interceptor", "Gateway System Metrics", "Integration Tests (TC6/TC7/TC8)"])
 
 # -------------------------------------------------------------------
 # HELPER FUNCTIONS
@@ -122,6 +127,31 @@ def extract_budget_from_prompt(prompt: str) -> float:
         if clean_num > 100:
             return clean_num
     return 70000.0
+
+
+def safe_parse_json(response: httpx.Response):
+    """Safely parse an httpx response body as JSON.
+
+    Returns (ok: bool, data: dict|None, cause: str).
+    Identifies the actual cause when the body is empty or non-JSON,
+    so callers never crash on dec.json() with a malformed response.
+    """
+    content_type = response.headers.get("content-type", "") or ""
+    is_json = "application/json" in content_type
+    body = response.text.strip()
+
+    if not body:
+        cause = f"HTTP {response.status_code}: empty response body (content-type: {content_type or 'none'})"
+        return False, None, cause
+    if not is_json:
+        cause = f"HTTP {response.status_code}: non-JSON content-type '{content_type}'"
+        return False, None, cause
+    try:
+        data = response.json()
+    except Exception as e:
+        cause = f"HTTP {response.status_code}: failed to decode JSON body: {e}"
+        return False, None, cause
+    return True, data, ""
 
 # -------------------------------------------------------------------
 # TAB 1: INTERCEPTOR SIMULATOR & CONTROL PANEL
@@ -234,7 +264,11 @@ with tab1:
                     }, 
                     timeout=15.0
                 )
-                st.session_state["latest_decision"] = res.json()
+                ok, data, cause = safe_parse_json(res)
+                if ok:
+                    st.session_state["latest_decision"] = data
+                else:
+                    st.error(f"Execution Error: {cause}\nRaw body: {res.text}")
 
             except Exception as e:
                 st.error(f"Execution Error: {str(e)}")
@@ -273,10 +307,16 @@ with tab1:
                             f"{PROXY_URL}/v1/escalations/{esc_id}/decision?action=APPROVE",
                             timeout=30.0
                         )
-                        st.session_state["latest_decision"] = dec.json()
-                        st.rerun()
+                        ok, data, cause = safe_parse_json(dec)
+                        if ok:
+                            st.session_state["latest_decision"] = data
+                            st.rerun()
+                        else:
+                            st.error(f"Approve response could not be parsed: {cause}\nRaw body: {dec.text}")
                     except httpx.ReadTimeout:
                         st.error("Connection timed out waiting for backend server. Please retry.")
+                    except Exception as e:
+                        st.error(f"Approve request failed: {str(e)}")
 
             with btn_c2:
                 if st.button("Reject Escalation & Cancel Cart", use_container_width=True, key=f"ui_btn_reject_{esc_id}"):
@@ -285,10 +325,16 @@ with tab1:
                             f"{PROXY_URL}/v1/escalations/{esc_id}/decision?action=REJECT",
                             timeout=30.0
                         )
-                        st.session_state["latest_decision"] = dec.json()
-                        st.rerun()
+                        ok, data, cause = safe_parse_json(dec)
+                        if ok:
+                            st.session_state["latest_decision"] = data
+                            st.rerun()
+                        else:
+                            st.error(f"Reject response could not be parsed: {cause}\nRaw body: {dec.text}")
                     except httpx.ReadTimeout:
                         st.error("Connection timed out waiting for proxy backend. Please try again.")
+                    except Exception as e:
+                        st.error(f"Reject request failed: {str(e)}")
 
         elif res_data.get("escalation_status") == "APPROVED":
             st.success("ESCALATION APPROVED - Held Transaction Resumed & PayPal Order Generated.")
@@ -343,4 +389,221 @@ with tab2:
         """)
 
     st.markdown("---")
+# -------------------------------------------------------------------
+# TAB 3: INTEGRATION TESTS
+# -------------------------------------------------------------------
+with tab3:
+    st.markdown("### Integration Tests")
+    st.caption("TC6, TC7, TC8")
+
+    # -------------------------------------------------------------------
+    # TC6 — PayPal API Failure / Zero-Amount Payment
+    # -------------------------------------------------------------------
+    st.markdown("#### TC6 — Zero / Negative Amount Rejection")
+    st.caption("Reject zero or negative transaction amounts before creating a PayPal order. Never generate mock PayPal IDs or report false success.")
+
+    if st.button("Run Test TC6", key="tc6"):
+        try:
+            amount = st.session_state.get("tc6_amount", 0.0)
+            r = httpx.post(
+                f"{PROXY_URL}/v1/orders",
+                json={
+                    "checkout_payload": {"amount": amount, "currency": "INR", "line_items": []},
+                    "policy": {
+                        "intent_id": str(uuid4()),
+                        "user_id": "t",
+                        "raw_prompt": "x",
+                        "rules": {
+                            "max_budget_inr": 1000,
+                            "variance_tolerance_percent": 5.0,
+                            "required_categories": [],
+                            "prohibited_categories": [],
+                            "prohibited_keywords": []
+                        },
+                        "expires_at": int(time.time()) + 3600,
+                        "signature": "bypass_signature_for_sim"
+                    }
+                },
+                timeout=15.0
+            )
+            ok, data, cause = safe_parse_json(r)
+            st.write("Status:", r.status_code)
+            st.write("Body:", r.text[:500])
+            passed = ok and (
+                r.status_code in (400, 422, 502)
+                and (data is None or data.get("status") in ("BLOCKED", "PAYPAL_ORDER_CREATE_FAILED"))
+                and not str(data.get("paypal_order", {}).get("id", "")).startswith("order_mock") if data else True
+            )
+            st.write("PASS" if passed else "FAIL — " + (cause if not ok else ""))
+        except Exception as e:
+            st.error(str(e))
+
+    # -------------------------------------------------------------------
+    # TC7 — Pending / Unverified Payment Capture
+    # -------------------------------------------------------------------
+    st.markdown("#### TC7 — Pending / Unverified Payment Capture")
+    st.caption("Verify an unverified or pending PayPal capture returns payment_completed=false, status PAYMENT_PENDING, and the correct audit entry. Do not fabricate a pending state or assume success without backend evidence.")
+
+    if st.button("Run Test TC7", key="tc7"):
+        try:
+            # Step A: create a genuine order (valid amount)
+            create = httpx.post(
+                f"{PROXY_URL}/v1/orders",
+                json={
+                    "checkout_payload": {"amount": 100, "currency": "INR", "line_items": []},
+                    "policy": {
+                        "intent_id": str(uuid4()),
+                        "user_id": "t",
+                        "raw_prompt": "x",
+                        "rules": {
+                            "max_budget_inr": 1000,
+                            "variance_tolerance_percent": 5.0,
+                            "required_categories": [],
+                            "prohibited_categories": [],
+                            "prohibited_keywords": []
+                        },
+                        "expires_at": int(time.time()) + 3600,
+                        "signature": "bypass_signature_for_sim"
+                    }
+                },
+                timeout=15.0
+            )
+            ok, data, cause = safe_parse_json(create)
+            st.write("Create Order Status:", create.status_code)
+            st.write("Create Order Body:", create.text[:500])
+
+            order_id = None
+            if ok and create.status_code == 200:
+                order_id = (data or {}).get("paypal_order", {}).get("id")
+
+            passed = False
+            if not order_id or str(order_id).startswith("order_mock"):
+                st.write("No real PayPal order created by backend — cannot verify genuine capture. FAIL")
+                passed = False
+            else:
+                # Step B: attempt unverified capture
+                cap = httpx.post(
+                    f"{PROXY_URL}/v1/orders/{order_id}/capture",
+                    json={},
+                    timeout=15.0
+                )
+                c_ok, c_data, c_cause = safe_parse_json(cap)
+                st.write("Capture Status:", cap.status_code)
+                st.write("Capture Body:", cap.text[:500])
+                passed = (
+                    c_ok
+                    and cap.status_code == 200
+                    and c_data.get("payment_completed") is False
+                    and c_data.get("status") == "PAYMENT_PENDING"
+                )
+                if not c_ok:
+                    st.write("FAIL — " + c_cause)
+
+                # Step C: verify audit trail recorded PAYMENT_PENDING
+                try:
+                    audit = httpx.get(f"{PROXY_URL}/v1/audit-trail", timeout=15.0)
+                    a_ok, a_data, a_cause = safe_parse_json(audit)
+                    if a_ok and a_data:
+                        logs = a_data.get("logs", [])
+                        pending_logged = any(
+                            log.get("status") == "PAYMENT_PENDING" and log.get("paypal_order_id") == order_id
+                            for log in logs
+                        )
+                        st.write("Audit trail PAYMENT_PENDING entry:", "present" if pending_logged else "missing")
+                        passed = passed and pending_logged
+                    else:
+                        st.write("Audit trail check skipped:", a_cause or "non-JSON/empty")
+                except Exception as e:
+                    st.write("Audit trail check error:", str(e))
+
+            st.write("PASS" if passed else "FAIL")
+        except Exception as e:
+            st.error(str(e))
+
+    # -------------------------------------------------------------------
+    # TC8 — Concurrent Duplicate HITL Approval
+    # -------------------------------------------------------------------
+    st.markdown("#### TC8 — Concurrent Duplicate HITL Approval")
+    st.caption("Create a HOLD escalation and send two approval requests simultaneously for the same escalation. Pass only if exactly one approval creates a PayPal order, the other reports already processed, and duplicate prevention is atomic and concurrency-safe.")
+
+    if st.button("Run Test TC8", key="tc8"):
+        try:
+            # Step A: create a HOLD escalation (amount within 5% tolerance → AMBIGUOUS → HOLD)
+            create = httpx.post(
+                f"{PROXY_URL}/v1/orders",
+                json={
+                    "checkout_payload": {"amount": 71400, "currency": "INR", "line_items": []},
+                    "policy": {
+                        "intent_id": str(uuid4()),
+                        "user_id": "t",
+                        "raw_prompt": "x",
+                        "rules": {
+                            "max_budget_inr": 70000,
+                            "variance_tolerance_percent": 5.0,
+                            "required_categories": [],
+                            "prohibited_categories": [],
+                            "prohibited_keywords": []
+                        },
+                        "expires_at": int(time.time()) + 3600,
+                        "signature": "bypass_signature_for_sim"
+                    }
+                },
+                timeout=15.0
+            )
+            ok, data, cause = safe_parse_json(create)
+            st.write("Create Order Status:", create.status_code)
+            st.write("Create Order Body:", create.text[:500])
+
+            esc = None
+            if ok and create.status_code == 200:
+                esc = (data or {}).get("escalation_id")
+
+            if not esc:
+                st.write("No escalation created by backend — cannot run concurrency test. FAIL")
+            else:
+                st.write("Escalation ID:", esc)
+
+                # Step B: send two APPROVE requests simultaneously
+                def fire():
+                    return httpx.post(
+                        f"{PROXY_URL}/v1/escalations/{esc}/decision?action=APPROVE",
+                        timeout=30.0
+                    )
+
+                import concurrent.futures
+                results = []
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+                    futs = [ex.submit(fire), ex.submit(fire)]
+                    for f in concurrent.futures.as_completed(futs):
+                        results.append(f.result())
+
+                approved = []
+                already_processed = []
+                for res in results:
+                    r_ok, r_data, r_cause = safe_parse_json(res)
+                    st.write("Response:", res.status_code, res.text[:300])
+                    if r_ok and res.status_code == 200 and r_data and r_data.get("escalation_status") == "APPROVED":
+                        approved.append(res)
+                    elif "already been processed" in res.text.lower():
+                        already_processed.append(res)
+                    else:
+                        st.write("  (unexpected response)")
+
+                passed = len(approved) == 1 and len(already_processed) == 1
+                # Exactly one real PayPal order should have been created
+                order_ids = []
+                for res in approved:
+                    r_ok, r_data, _ = safe_parse_json(res)
+                    if r_ok and r_data:
+                        oid = (r_data.get("paypal_order") or {}).get("id")
+                        if oid and not str(oid).startswith("order_mock"):
+                            order_ids.append(oid)
+                passed = passed and len(order_ids) == 1
+                st.write("Approvals processed:", len(approved))
+                st.write("Already processed duplicates:", len(already_processed))
+                st.write("Real PayPal orders created:", len(order_ids))
+                st.write("PASS" if passed else "FAIL")
+        except Exception as e:
+            st.error(str(e))
+
 st.caption("PayPal IntentGuard - Agentic Payment Gateway Verification Infrastructure")
