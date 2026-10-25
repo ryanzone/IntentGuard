@@ -28,7 +28,7 @@ def policy(intent_id, user_id="usr_tc", budget=70000, raw_prompt=None, bypass=Tr
         "signature": "bypass_signature_for_sim" if bypass else "bad_sig"
     }
 
-def checkout(amount, currency="USD", items=None):
+def checkout(amount, currency="INR", items=None):
     return {
         "amount": amount,
         "currency": currency,

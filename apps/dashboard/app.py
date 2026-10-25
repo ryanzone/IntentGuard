@@ -428,7 +428,7 @@ with tab3:
             r = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": amount, "currency": "USD", "line_items": []},
+                    "checkout_payload": {"amount": amount, "currency": "INR", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
@@ -471,7 +471,7 @@ with tab3:
             create = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": 100, "currency": "USD", "line_items": []},
+                    "checkout_payload": {"amount": 100, "currency": "INR", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
@@ -554,7 +554,7 @@ with tab3:
             create = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": 71400, "currency": "USD", "line_items": []},
+                    "checkout_payload": {"amount": 71400, "currency": "INR", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
