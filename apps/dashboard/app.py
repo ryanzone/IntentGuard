@@ -106,7 +106,7 @@ st.caption("Autonomous Agent Verification, Semantic Line-Item Inspection & Human
 if "latest_decision" not in st.session_state:
     st.session_state["latest_decision"] = None
 
-tab1, tab2 = st.tabs(["Agent Simulator & Interceptor", "Gateway System Metrics"])
+tab1, tab2, tab3 = st.tabs(["Agent Simulator & Interceptor", "Gateway System Metrics", "Integration Tests (TC6-TC8)"])
 
 # -------------------------------------------------------------------
 # HELPER FUNCTIONS

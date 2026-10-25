@@ -11,11 +11,14 @@ class AuditLogEntry(BaseModel):
     intent_id: str
     user_id: str
     raw_prompt: str
-    status: str  # "APPROVED", "HOLD", "BLOCKED", "ESCALATED_APPROVED", "ESCALATED_REJECTED"
+    status: str  # "APPROVED", "PAYMENT_PENDING", "PAYPAL_ORDER_CREATE_FAILED",
+                  # "BLOCKED", "HOLD", "ESCALATED_APPROVED", "ESCALATED_REJECTED",
+                  # "CAPTURE_FAILED", "PAYMENT_COMPLETED"
     reason: Optional[str] = None
     checkout_payload: Dict[str, Any]
     policy_rules: Dict[str, Any]
     paypal_order_id: Optional[str] = None
+    payment_state: Optional[str] = None  # "completed", "pending", "failed", "unverified"
 
 # In-memory storage for transaction audit trails
 _audit_trail_db: List[AuditLogEntry] = []
