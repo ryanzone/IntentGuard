@@ -153,6 +153,26 @@ def safe_parse_json(response: httpx.Response):
         return False, None, cause
     return True, data, ""
 
+
+def order_id_from(data):
+    """Extract the real PayPal order id, handling the SDK _dict wrapper."""
+    if not isinstance(data, dict):
+        return ""
+    po = data.get("paypal_order") or {}
+    if isinstance(po, dict) and "_dict" in po:
+        po = po["_dict"]
+    return po.get("id", "") if isinstance(po, dict) else ""
+
+
+def detail_status(data):
+    """Get the status from a response, handling FastAPI detail nesting."""
+    if isinstance(data, dict):
+        d = data.get("detail")
+        if isinstance(d, dict):
+            return d.get("status")
+        return data.get("escalation_status") or data.get("status")
+    return None
+
 # -------------------------------------------------------------------
 # TAB 1: INTERCEPTOR SIMULATOR & CONTROL PANEL
 # -------------------------------------------------------------------
@@ -408,7 +428,7 @@ with tab3:
             r = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": amount, "currency": "INR", "line_items": []},
+                    "checkout_payload": {"amount": amount, "currency": "USD", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
@@ -429,10 +449,11 @@ with tab3:
             ok, data, cause = safe_parse_json(r)
             st.write("Status:", r.status_code)
             st.write("Body:", r.text[:500])
+            ds = detail_status(data)
             passed = ok and (
                 r.status_code in (400, 422, 502)
-                and (data is None or data.get("status") in ("BLOCKED", "PAYPAL_ORDER_CREATE_FAILED"))
-                and not str(data.get("paypal_order", {}).get("id", "")).startswith("order_mock") if data else True
+                and ds in ("BLOCKED", "PAYPAL_ORDER_CREATE_FAILED")
+                and not str(order_id_from(data)).startswith("order_mock")
             )
             st.write("PASS" if passed else "FAIL — " + (cause if not ok else ""))
         except Exception as e:
@@ -450,7 +471,7 @@ with tab3:
             create = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": 100, "currency": "INR", "line_items": []},
+                    "checkout_payload": {"amount": 100, "currency": "USD", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
@@ -474,7 +495,7 @@ with tab3:
 
             order_id = None
             if ok and create.status_code == 200:
-                order_id = (data or {}).get("paypal_order", {}).get("id")
+                order_id = order_id_from(data)
 
             passed = False
             if not order_id or str(order_id).startswith("order_mock"):
@@ -490,11 +511,12 @@ with tab3:
                 c_ok, c_data, c_cause = safe_parse_json(cap)
                 st.write("Capture Status:", cap.status_code)
                 st.write("Capture Body:", cap.text[:500])
+                cds = detail_status(c_data)
                 passed = (
                     c_ok
                     and cap.status_code == 200
                     and c_data.get("payment_completed") is False
-                    and c_data.get("status") == "PAYMENT_PENDING"
+                    and cds == "PAYMENT_PENDING"
                 )
                 if not c_ok:
                     st.write("FAIL — " + c_cause)
@@ -532,7 +554,7 @@ with tab3:
             create = httpx.post(
                 f"{PROXY_URL}/v1/orders",
                 json={
-                    "checkout_payload": {"amount": 71400, "currency": "INR", "line_items": []},
+                    "checkout_payload": {"amount": 71400, "currency": "USD", "line_items": []},
                     "policy": {
                         "intent_id": str(uuid4()),
                         "user_id": "t",
@@ -582,10 +604,10 @@ with tab3:
                 for res in results:
                     r_ok, r_data, r_cause = safe_parse_json(res)
                     st.write("Response:", res.status_code, res.text[:300])
-                    if r_ok and res.status_code == 200 and r_data and r_data.get("escalation_status") == "APPROVED":
-                        approved.append(res)
-                    elif "already been processed" in res.text.lower():
+                    if "already been processed" in res.text.lower():
                         already_processed.append(res)
+                    elif r_ok and res.status_code == 200 and r_data and r_data.get("escalation_status") == "APPROVED":
+                        approved.append(res)
                     else:
                         st.write("  (unexpected response)")
 
@@ -595,7 +617,7 @@ with tab3:
                 for res in approved:
                     r_ok, r_data, _ = safe_parse_json(res)
                     if r_ok and r_data:
-                        oid = (r_data.get("paypal_order") or {}).get("id")
+                        oid = order_id_from(r_data)
                         if oid and not str(oid).startswith("order_mock"):
                             order_ids.append(oid)
                 passed = passed and len(order_ids) == 1
