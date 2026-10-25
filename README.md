@@ -10,14 +10,6 @@
 
 ---
 
-## Demo
-
-**Demo Video:** [Watch the Razorpay IntentGuard Demo](https://youtu.be/u8gw1rCU4nk?si=c18reocTfbA0ZUWC)
-
-## Demo
-
-**Demo Video:** [Watch the PayPal IntentGuard Demo](https://youtu.be/u8gw1rCU4nk?si=c18reocTfbA0ZUWC)
-
 ## Executive Summary
 
 Autonomous AI shopping agents frequently make purchases on behalf of consumers. However, standard payment gateway rails primarily enforce flat spending caps (e.g., total price ≤ ₹70,000). They cannot evaluate natural-language constraints or inspect individual cart line items to determine whether a transaction actually aligns with the user's original instructions.
@@ -59,7 +51,7 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
                                           |
                                           ▼                              
                               ┌─────────────────────────┐
-                              │ PayPal IntentGuard    │
+                              │ PayPal IntentGuard      │
                               │ Proxy Interceptor       │
                               └───────────┬─────────────┘
                                           │
@@ -69,7 +61,7 @@ PayPal IntentGuard is designed around emerging standards for **verifiable intent
       ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
       │ STATUS: APPROVED    │  │ STATUS: BLOCKED     │  │ STATUS: HOLD        │
       ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-│ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
+      │ Executes PayPal     │  │ Prevents Order      │  │ Dispatches WhatsApp │
       │ Order               │  │ Creation            │  │ Approval Link       │
       └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
@@ -162,7 +154,7 @@ Built and deployed using **Docker and Docker Compose** for consistent local deve
 ## Directory Structure
 
 ```text
-razorpay-intentguard/
+intentguard/
 ├── apps/
 │   ├── dashboard/
 │   │   ├── Dockerfile
