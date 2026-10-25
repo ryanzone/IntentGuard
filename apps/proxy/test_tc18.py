@@ -28,7 +28,7 @@ def policy(intent_id, user_id="usr_tc", budget=70000, raw_prompt=None, bypass=Tr
         "signature": "bypass_signature_for_sim" if bypass else "bad_sig"
     }
 
-def checkout(amount, currency="INR", items=None):
+def checkout(amount, currency="USD", items=None):
     return {
         "amount": amount,
         "currency": currency,
@@ -67,8 +67,17 @@ def detail_status(data):
         d = data.get("detail")
         if isinstance(d, dict):
             return d.get("status")
-        return data.get("status")
+        return data.get("escalation_status") or data.get("status")
     return None
+
+def order_id_from(data):
+    """Extract the real PayPal order id, handling SDK _dict wrapper."""
+    if not isinstance(data, dict):
+        return ""
+    po = data.get("paypal_order") or {}
+    if isinstance(po, dict) and "_dict" in po:
+        po = po["_dict"]
+    return po.get("id", "") if isinstance(po, dict) else ""
 
 def report(tc, name, passed, detail=""):
     results.append((tc, name, passed, detail))
@@ -91,8 +100,7 @@ def test_tc1():
         return
     ds = detail_status(data)
     if r.status_code == 200 and ds == "APPROVED":
-        po = data.get("paypal_order") or {}
-        oid = po.get("id", "") if isinstance(po, dict) else ""
+        oid = order_id_from(data)
         if oid and not oid.startswith("order_mock"):
             report("TC1", "Valid PayPal Purchase", True, "%s real order_id=%s" % (detail, oid))
         else:
@@ -156,8 +164,7 @@ def test_tc3():
         return
     dds = detail_status(ddata)
     if dec.status_code == 200 and dds == "APPROVED":
-        po = ddata.get("paypal_order") or {}
-        oid = po.get("id", "") if isinstance(po, dict) else ""
+        oid = order_id_from(ddata)
         if oid and not oid.startswith("order_mock"):
             report("TC3", "HITL Hold and Approval", True, "%s real order_id=%s" % (ddetail, oid))
         else:
@@ -188,10 +195,7 @@ def test_tc4():
     d2ok, d2data, d2cause = parse(dec2)
     first_approved = d1ok and dec1.status_code == 200 and detail_status(d1data) == "APPROVED"
     second_dup = "already been processed" in dec2.text.lower()
-    oid = None
-    if first_approved and d1data:
-        po = d1data.get("paypal_order") or {}
-        oid = po.get("id", "") if isinstance(po, dict) else ""
+    oid = order_id_from(d1data) if first_approved and d1data else None
     one_real_order = bool(oid and not oid.startswith("order_mock"))
     detail = "first=%s %s | second=%s %s" % (dec1.status_code, dec1.text[:120], dec2.status_code, dec2.text[:120])
     passed = first_approved and second_dup and one_real_order
@@ -246,7 +250,7 @@ def test_tc7():
         report("TC7", "Pending Capture", False, "%s no order created (PayPal order creation failed — no sandbox creds)" % detail)
         return
     po = data.get("paypal_order") or {}
-    oid = po.get("id", "") if isinstance(po, dict) else ""
+    oid = order_id_from(data)
     if not oid or oid.startswith("order_mock"):
         report("TC7", "Pending Capture", False, "%s no real order_id (oid=%s) — cannot test capture" % (detail, oid))
         return
@@ -293,18 +297,17 @@ def test_tc8():
     for res in results_http:
         txt = res.text.lower()
         rok, rdata, rcause = parse(res)
-        if rok and res.status_code == 200 and detail_status(rdata) == "APPROVED":
-            approved.append(res)
-        elif "already been processed" in txt:
+        if "already been processed" in txt:
             already.append(res)
+        elif rok and res.status_code == 200 and detail_status(rdata) == "APPROVED":
+            approved.append(res)
 
     detail = "responses=%s" % [(x.status_code, x.text[:100]) for x in results_http]
     order_ids = []
     for res in approved:
         rok, rdata, _ = parse(res)
         if rok and rdata:
-            po = rdata.get("paypal_order") or {}
-            oid = po.get("id", "") if isinstance(po, dict) else ""
+            oid = order_id_from(rdata)
             if oid and not oid.startswith("order_mock"):
                 order_ids.append(oid)
     passed = len(approved) == 1 and len(already) == 1 and len(order_ids) == 1
